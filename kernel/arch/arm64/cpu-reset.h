@@ -25,8 +25,8 @@ void __cpu_soft_restart(unsigned el2_switch,
 	unsigned long entry, unsigned long arg0, unsigned long arg1,
 	unsigned long arg2);
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,19,0)
-static void __noreturn cpu_soft_restart(unsigned long el2_switch,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,19,0) || 1
+void __noreturn cpu_soft_restart(unsigned long el2_switch,
 	unsigned long entry, unsigned long arg0, unsigned long arg1,
 	unsigned long arg2)
 {

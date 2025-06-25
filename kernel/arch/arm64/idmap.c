@@ -22,8 +22,8 @@
 #define IDMAP_BLOCK_SIZE	PAGE_SIZE
 #define IDMAP_TABLE_SHIFT	PMD_SHIFT
 #else
-#define IDMAP_BLOCK_SHIFT	SECTION_SHIFT
-#define IDMAP_BLOCK_SIZE	SECTION_SIZE
+#define IDMAP_BLOCK_SHIFT	PMD_SHIFT
+#define IDMAP_BLOCK_SIZE	PMD_SIZE
 #define IDMAP_TABLE_SHIFT	PUD_SHIFT
 #endif
 
@@ -105,6 +105,7 @@ phys_addr_t kexec_pa_symbol(void *ptr)
 	unsigned long va = (unsigned long) ptr;
 	unsigned long page_offset;
 	pgd_t *pgd;
+	p4d_t* p4d;
 	pud_t *pud;
 	pmd_t *pmd;
 	pte_t *ptep, pte;
@@ -115,7 +116,12 @@ phys_addr_t kexec_pa_symbol(void *ptr)
 		return 0;
 	}
 
-	pud = pud_offset(pgd , va);
+	p4d = p4d_offset(pgd, va);
+	if (p4d_none(*p4d) || p4d_bad(*p4d)) {
+		return 0;
+	}
+
+	pud = pud_offset(p4d , va);
 	if (pud_none(*pud) || pud_bad(*pud)) {
 		return 0;
 	}

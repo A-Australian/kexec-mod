@@ -93,7 +93,9 @@ static void kexec_list_flush(struct kimage *kimage)
 	       void *addr;
 
 	       /* flush the list entries. */
-	       __flush_dcache_area(entry, sizeof(kimage_entry_t));
+	       dcache_clean_inval_poc(
+			(unsigned long)entry,
+			(unsigned long)entry + sizeof(kimage_entry_t));
 
 	       flag = *entry & IND_FLAGS;
 	       if (flag == IND_DONE)
@@ -108,7 +110,7 @@ static void kexec_list_flush(struct kimage *kimage)
 		       break;
 	       case IND_SOURCE:
 		       /* flush the source pages. */
-		       __flush_dcache_area(addr, PAGE_SIZE);
+		       dcache_clean_inval_poc((unsigned long)addr, (unsigned long)addr + PAGE_SIZE);
 		       break;
 	       case IND_DESTINATION:
 		       break;
@@ -135,8 +137,10 @@ static void kexec_segment_flush(const struct kimage *kimage)
 			kimage->segment[i].memsz,
 			kimage->segment[i].memsz /  PAGE_SIZE);
 
-	       __flush_dcache_area(phys_to_virt(kimage->segment[i].mem),
-				   kimage->segment[i].memsz);
+		dcache_clean_inval_poc(
+			(unsigned long)phys_to_virt(kimage->segment[i].mem),
+			(unsigned long)phys_to_virt(kimage->segment[i].mem) +
+				kimage->segment[i].memsz);
        }
 }
 
@@ -181,7 +185,9 @@ void machine_kexec(struct kimage *kimage)
 	      arm64_relocate_new_kernel_size);
 
        /* Flush the reboot_code_buffer in preparation for its execution. */
-       __flush_dcache_area(reboot_code_buffer, arm64_relocate_new_kernel_size);
+       dcache_clean_inval_poc(
+		(unsigned long)reboot_code_buffer,
+		(unsigned long)reboot_code_buffer + arm64_relocate_new_kernel_size);
 
        /*
 	* Although we've killed off the secondary CPUs, we don't update
@@ -189,8 +195,8 @@ void machine_kexec(struct kimage *kimage)
 	* need to avoid flush_icache_range(), which will attempt to IPI
 	* the offline CPUs. Therefore, we must use the __* variant here.
 	*/
-       __flush_icache_range((uintptr_t)reboot_code_buffer,
-			    arm64_relocate_new_kernel_size);
+       caches_clean_inval_pou((uintptr_t)reboot_code_buffer,
+			      arm64_relocate_new_kernel_size);
 
        /* Flush the kimage list and its buffers. */
        kexec_list_flush(kimage);
@@ -212,7 +218,7 @@ void machine_kexec(struct kimage *kimage)
 	* relocation is complete.
 	*/
 
-       cpu_soft_restart(reboot_code_buffer_phys, kimage->head, kimage->start, 0);
+       cpu_soft_restart(is_hyp_nvhe(), reboot_code_buffer_phys, kimage->head, kimage->start, 0);
 
        BUG(); /* Should never get here. */
 }
