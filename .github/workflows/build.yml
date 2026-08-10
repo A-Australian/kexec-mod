@@ -1,0 +1,68 @@
+name: Build kexec-mod (GKI android14-5.10, arm64)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'kernel/**'
+      - '.github/workflows/build-kexec-mod.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout kexec-mod
+        uses: actions/checkout@v4
+        with:
+          path: kexec-mod
+
+      - name: Install cross toolchain + build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            bc bison flex libssl-dev libelf-dev dwarves \
+            crossbuild-essential-arm64 clang lld llvm
+
+      # Pull the closest matching GKI branch. Adjust the branch name
+      # to whatever tag/branch corresponds to your device's Android 14
+      # / 5.10 build once you've confirmed it (android14-5.10 is the
+      # generic GKI branch name pattern; there is no guarantee it
+      # matches g9cb2f620a9a8 exactly).
+      - name: Checkout GKI kernel tree
+        run: |
+          git clone --depth=1 --branch android14-5.10 \
+            https://android.googlesource.com/kernel/common gki-kernel
+
+      # Paste the device's real /proc/config.gz output into
+      # kernel-config/device.config in the repo before running this,
+      # so the workflow builds with a config that actually matches
+      # what shipped, rather than a generic defconfig.
+      - name: Configure GKI tree
+        working-directory: gki-kernel
+        run: |
+          cp ../kexec-mod/kernel-config/device.config .config
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- \
+            CC=clang LD=ld.lld olddefconfig
+
+      # Only need enough of the tree built to produce Module.symvers,
+      # System.map, and the headers kexec-mod's Kbuild expects.
+      - name: Prepare kernel build (modules_prepare)
+        working-directory: gki-kernel
+        run: |
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- \
+            CC=clang LD=ld.lld -j"$(nproc)" modules_prepare
+
+      - name: Build kexec-mod against GKI tree
+        working-directory: kexec-mod/kernel
+        run: |
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- \
+            CC=clang LD=ld.lld \
+            KDIR=${{ github.workspace }}/gki-kernel
+
+      - name: Upload .ko artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: kexec-mod-ko
+          path: |
+            kexec-mod/kernel/*.ko
+            kexec-mod/kernel/**/*.ko
