@@ -23,14 +23,18 @@ jobs:
             bc bison flex libssl-dev libelf-dev dwarves \
             crossbuild-essential-arm64 clang lld llvm
 
-      # Pull the closest matching GKI branch. Adjust the branch name
-      # to whatever tag/branch corresponds to your device's Android 14
-      # / 5.10 build once you've confirmed it (android14-5.10 is the
-      # generic GKI branch name pattern; there is no guarantee it
-      # matches g9cb2f620a9a8 exactly).
+      # IMPORTANT: 5.10 never got an android14-5.10 branch. GKI branches
+      # are named ANDROID_RELEASE-KERNEL_VERSION and are only cut when a
+      # kernel version is current for a platform release; 5.10's GKI
+      # branches stopped at android13-5.10 (android14 moved to 5.15/6.1
+      # for *new* devices). A device shipping Android 14 userspace on a
+      # 5.10.240 kernel is running a vendor-frozen fork of that
+      # android13-5.10 line at a later patch level (-240, vendor suffix
+      # g9cb2f620a9a8) — so android13-5.10 is the closest public
+      # approximation, not an exact match.
       - name: Checkout GKI kernel tree
         run: |
-          git clone --depth=1 --branch android14-5.10 \
+          git clone --depth=1 --branch android13-5.10 \
             https://android.googlesource.com/kernel/common gki-kernel
 
       # Paste the device's real /proc/config.gz output into
